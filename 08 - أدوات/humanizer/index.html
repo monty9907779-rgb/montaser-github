@@ -308,7 +308,13 @@ $('copy').onclick=async()=>{ if(!lastOut) return; try{ await navigator.clipboard
 $('paste').onclick=async()=>{ try{ $('src').value=await navigator.clipboard.readText(); $('src').dispatchEvent(new Event('input')); }catch(e){ $('src').focus(); } };
 $('clear').onclick=()=>{ $('src').value=''; $('out').innerHTML=''; $('log').innerHTML=''; $('score').innerHTML=''; $('inStats').textContent='0 كلمة'; $('outStats').textContent='0 كلمة'; lastOut=''; };
 $('useAsInput').onclick=()=>{ if(lastOut){ $('src').value=lastOut; $('src').dispatchEvent(new Event('input')); } };
-$('download').onclick=()=>{ if(!lastOut) return; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lastOut],{type:'text/plain'})); a.download='humanized.txt'; a.click(); };
+$('download').onclick=async()=>{ if(!lastOut) return;
+  const btn=$('download'); const fn='humanized.txt';
+  let dl=null; try{ if(window.claude&&typeof window.claude.use==='function') dl=await window.claude.use('downloads'); }catch(e){}
+  if(dl){ btn.disabled=true; try{ await dl.save({filename:fn,data:lastOut}); btn.textContent='تم الحفظ ✓'; }
+    catch(e){ btn.textContent= e&&e.code==='declined'?'تم الإلغاء':'تعذّر التنزيل'; }
+    finally{ btn.disabled=false; setTimeout(()=>btn.textContent='تنزيل .txt',1800); } return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lastOut],{type:'text/plain'})); a.download=fn; a.click(); };
 $('sample').onclick=()=>{ $('src').value= (document.documentElement.lang==='ar') ?
 `في عالم اليوم المتسارع، من الجدير بالذكر أن التسويق الرقمي أصبح عنصرًا محوريًا — بل أساسيًا — لنجاح أي شركة. علاوة على ذلك، يتوجب علينا العمل على تحقيق الاستفادة القصوى من البيانات المتاحة من خلال أدوات التحليل الحديثة، حيث أن هذه الأدوات تتيح لنا فهم سلوك العملاء بشكل ملحوظ وتحسين الحملات الإعلانية وزيادة المبيعات وبناء علاقات طويلة الأمد. في الختام، مما لا شك فيه أن الاستثمار في هذا المجال هو قرار حكيم.` :
 `In today's fast-paced world, it's important to note that digital marketing has become a pivotal — indeed essential — element for any business. Furthermore, we must leverage the plethora of data available in order to facilitate a comprehensive understanding of customer behavior, which allows us to optimize campaigns and ultimately drive robust growth. In conclusion, undoubtedly investing in this realm is a game-changer.`;
