@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Humanizer Tool</title>
+<meta name="description" content="أداة لتحويل النصوص المكتوبة بالذكاء الاصطناعي إلى نص طبيعي يشبه كتابة البشر (عربي / إنجليزي)">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f4ef;--card:#ffffff;--ink:#1c1b18;--muted:#6b675e;--line:#e2ddd3;
+  --accent:#1f6f5f;--accent-ink:#ffffff;--soft:#e9f3f0;--warn:#b9541c;--mark:#fff1b8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#15140f;--card:#1e1d17;--ink:#ecebe3;--muted:#a19c8f;--line:#33312a;
+    --accent:#4fb39a;--accent-ink:#0f1f1a;--soft:#1f2b27;--warn:#e88a4f;--mark:#4a3f10;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15140f;--card:#1e1d17;--ink:#ecebe3;--muted:#a19c8f;--line:#33312a;
+  --accent:#4fb39a;--accent-ink:#0f1f1a;--soft:#1f2b27;--warn:#e88a4f;--mark:#4a3f10;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;line-height:1.7}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+h1{font-size:1.5rem;margin:0}
+h1 small{display:block;font-size:.85rem;color:var(--muted);font-weight:400}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{font-size:1rem;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+textarea{width:100%;min-height:320px;border:1px solid var(--line);border-radius:8px;padding:12px;font:inherit;background:transparent;color:var(--ink);resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.out{min-height:320px;border:1px solid var(--line);border-radius:8px;padding:12px;white-space:pre-wrap;word-wrap:break-word}
+.out mark{background:var(--mark);color:inherit;border-radius:3px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:8px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.opts{display:flex;gap:14px;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.stats{font-size:.85rem;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.stats b{color:var(--ink)}
+.log{font-size:.85rem;color:var(--muted);margin-top:10px}
+.log li{margin:2px 0}
+details{margin-top:14px;font-size:.9rem}
+summary{cursor:pointer;color:var(--accent);font-weight:500}
+input[type=password],input[type=text]{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);width:100%;max-width:420px}
+.note{font-size:.8rem;color:var(--muted)}
+.tag{font-size:.75rem;background:var(--soft);color:var(--accent);padding:2px 8px;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Humanizer <small>حوّل نص الذكاء الاصطناعي إلى نص طبيعي يشبه كتابة البشر</small></h1>
+  <div class="bar" style="margin:0">
+    <button id="langBtn" title="تبديل اتجاه الواجهة">EN / ع</button>
+    <button id="themeBtn" title="الوضع الليلي">☾</button>
+  </div>
+</header>
+
+<div class="opts card" style="margin-bottom:12px">
+  <label><input type="checkbox" id="oPhrases" checked> حذف العبارات الآلية (In conclusion, بشكل عام، delve...)</label>
+  <label><input type="checkbox" id="oDash" checked> استبدال الشرطة الطويلة —</label>
+  <label><input type="checkbox" id="oMd" checked> إزالة تنسيق Markdown والإيموجي</label>
+  <label><input type="checkbox" id="oSplit" checked> تقسيم الجمل الطويلة</label>
+  <label><input type="checkbox" id="oContr" checked> اختصارات إنجليزية (it's, don't)</label>
+  <label><input type="checkbox" id="oSimple" checked> تبسيط الكلمات المنمّقة</label>
+  <label><input type="checkbox" id="oVary" checked> تنويع بدايات الجمل</label>
+  <label><input type="checkbox" id="oHi" checked> تمييز التغييرات</label>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2>النص الأصلي <span class="tag" id="inStats">0 كلمة</span></h2>
+    <textarea id="src" placeholder="الصق هنا النص المكتوب بالذكاء الاصطناعي (عربي أو إنجليزي)..."></textarea>
+    <div class="bar">
+      <button class="primary" id="run">هيومنايز ✦</button>
+      <button id="paste">لصق</button>
+      <button id="clear">مسح</button>
+      <button id="sample">مثال</button>
+    </div>
+  </section>
+  <section class="card">
+    <h2>النتيجة <span class="tag" id="outStats">0 كلمة</span></h2>
+    <div class="out" id="out"></div>
+    <div class="bar">
+      <button class="primary" id="copy">نسخ النتيجة</button>
+      <button id="download">تنزيل .txt</button>
+      <button id="useAsInput">استخدم كمدخل</button>
+    </div>
+    <div class="stats" id="score"></div>
+    <ul class="log" id="log"></ul>
+  </section>
+</div>
+
+<details class="card">
+  <summary>وضع متقدم: إعادة صياغة بالذكاء الاصطناعي (اختياري، يحتاج مفتاح Anthropic API)</summary>
+  <p class="note">المفتاح يُحفظ في متصفحك فقط (localStorage) ولا يُرسل لأي مكان غير api.anthropic.com. القواعد المحلية أعلاه تعمل بدون مفتاح.</p>
+  <div class="bar">
+    <input type="password" id="apiKey" placeholder="sk-ant-...">
+    <button id="saveKey">حفظ المفتاح</button>
+    <button id="aiRun" class="primary">إعادة صياغة بالـ AI</button>
+  </div>
+  <div class="bar">
+    <label class="note">النبرة:
+      <select id="tone" style="font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink)">
+        <option value="natural">طبيعية</option>
+        <option value="business">عمل / رسمية خفيفة</option>
+        <option value="casual">ودّية</option>
+        <option value="sales">مبيعات وعرض</option>
+      </select>
+    </label>
+  </div>
+  <p class="note" id="aiStatus"></p>
+</details>
+</div>
+
+<script>
+// ---------- Rules ----------
+const AI_PHRASES_EN = [
+  /\b(in conclusion|to conclude|in summary|to summarize|overall|all in all),?\s*/gi,
+  /\b(it'?s (important|worth|crucial|essential) to (note|mention|remember|highlight) that)\s*/gi,
+  /\b(it should be noted that|please note that|note that)\s*/gi,
+  /\b(as an ai language model|as an ai|i hope this helps[.!]?)\s*/gi,
+  /\b(in today'?s (fast-paced|digital|modern|ever-evolving) world),?\s*/gi,
+  /\b(in the (realm|landscape|world) of \w+),?\s*/gi,
+  /\b(furthermore|moreover|additionally|in addition),?\s*/gi,
+  /\b(ultimately|essentially|fundamentally|undoubtedly|certainly|notably|importantly),?\s*/gi,
+  /\b(this (article|guide|post|blog) (will|aims to) (explore|discuss|cover|delve into))\s*/gi,
+  /\b(let'?s (dive|delve) (in|into)),?\s*/gi,
+  /\b(without further ado),?\s*/gi,
+];
+const BUZZ_EN = [
+  [/\ba testament to\b/gi,'proof of'],
+  [/\bunlock(ing)? the (power|potential|secrets) of\b/gi,'get$1 more from'],
+  [/\bgame[- ]changer\b/gi,'big deal'],[/\bgame[- ]changing\b/gi,'major'],
+  [/\bseamlessly\b/gi,'smoothly'],[/\bseamless\b/gi,'smooth'],[/\brobust\b/gi,'solid'],
+  [/\bcutting[- ]edge\b/gi,'modern'],[/\bstate[- ]of[- ]the[- ]art\b/gi,'latest'],
+  [/\bthe plethora of\b/gi,'the'],[/\bthe myriad of\b/gi,'the many'],
+];
+const AI_PHRASES_AR = [
+  /(في الختام|ختامًا|ختاما|وفي النهاية|خلاصة القول|بشكل عام|بصفة عامة|وبالتالي فإن)[،,]?\s*/g,
+  /(^|[.!?؟]\s+)(حيث أن|كما أن|إذ أن)\s*/g,
+  /(من الجدير بالذكر أن|تجدر الإشارة إلى أن|لا بد من الإشارة إلى أن|من المهم أن نلاحظ أن|يجدر بالذكر أن)\s*/g,
+  /(علاوة على ذلك|بالإضافة إلى ذلك|فضلًا عن ذلك|فضلا عن ذلك|إضافة إلى ذلك)[،,]?\s*/g,
+  /(في عالم اليوم (المتسارع|الرقمي|الحديث))[،,]?\s*/g,
+  /(مما لا شك فيه أن|من المؤكد أن|بلا شك أن|بلا شك|بكل تأكيد)[،,]?\s*/g,
+  /(في هذا المقال سوف (نتناول|نستعرض|نناقش|نتحدث عن))\s*/g,
+  /(دعونا (نتعمق|نغوص) في)\s*/g,
+  /(كمساعد ذكاء اصطناعي[،,]?)\s*/g,
+  /(آمل أن (يكون هذا مفيدًا|يساعدك هذا)[.!]?)\s*/g,
+];
+const SIMPLE_EN = [
+  ...BUZZ_EN,
+  [/\butilize(s|d)?\b/gi, m=>m.toLowerCase().startsWith('utilized')?'used':m.toLowerCase().endsWith('s')?'uses':'use'],
+  [/\bleverage(s|d)?\b/gi, m=>m.toLowerCase().endsWith('d')?'used':m.toLowerCase().endsWith('s')?'uses':'use'],
+  [/\bdelve(s|d)? into\b/gi, 'look at'],
+  [/\bfacilitate(s|d)?\b/gi, m=>m.toLowerCase().endsWith('d')?'helped':m.toLowerCase().endsWith('s')?'helps':'help'],
+  [/\bcommence(s|d)?\b/gi, m=>m.toLowerCase().endsWith('d')?'started':m.toLowerCase().endsWith('s')?'starts':'start'],
+  [/\bendeavor(s)?\b/gi, 'effort$1'],
+  [/\bplethora of\b/gi, 'lots of'],
+  [/\bmyriad of\b/gi, 'many'],
+  [/\bin order to\b/gi, 'to'],
+  [/\bdue to the fact that\b/gi, 'because'],
+  [/\bat this point in time\b/gi, 'now'],
+  [/\bprior to\b/gi, 'before'],
+  [/\bsubsequently\b/gi, 'then'],
+  [/\bnevertheless\b/gi, 'still'],
+  [/\bcomprehensive\b/gi, 'full'],
+  [/\bpivotal\b/gi, 'key'],
+  [/\bmeticulous(ly)?\b/gi, 'careful$1'],
+  [/\btapestry\b/gi, 'mix'],
+  [/\bembark on\b/gi, 'start'],
+  [/\bnavigate the complexities of\b/gi, 'deal with'],
+  [/\bfoster(s|ed)?\b/gi, m=>m.toLowerCase().endsWith('ed')?'built':m.toLowerCase().endsWith('s')?'builds':'build'],
+  [/\bin the event that\b/gi, 'if'],
+  [/\ba wide range of\b/gi, 'many'],
+  [/\bensure that\b/gi, 'make sure'],
+];
+const SIMPLE_AR = [
+  [/العمل على تحقيق الاستفادة القصوى من/g,'نستفيد من'],[/تحقيق الاستفادة القصوى من/g,'الاستفادة من'],
+  [/يتوجب علينا/g,'لازم'],[/ينبغي علينا/g,'لازم'],
+  [/بالإمكان/g,'ممكن'],[/في الوقت الراهن/g,'حاليًا'],
+  [/على نحو فعّال/g,'بشكل جيد'],[/الاستفادة القصوى من/g,'استغلال'],
+  [/بشكل ملحوظ/g,'بوضوح'],[/على صعيد آخر/g,'من ناحية تانية'],
+  [/من خلال/g,'عن طريق'],[/حيث أن/g,'لأن'],[/نظرًا لأن/g,'لأن'],[/نظرا لأن/g,'لأن'],
+  [/في إطار/g,'ضمن'],[/القيام ب/g,'عمل '],[/العمل على تحقيق/g,'تحقيق'],
+  [/وبناءً على ذلك/g,'وعشان كده'],[/وبناء على ذلك/g,'وعشان كده'],
+  [/متعدد الأوجه/g,'متنوع'],[/شامل ومتكامل/g,'كامل'],
+];
+const CONTR = [
+  [/\bit is\b/g,"it's"],[/\bthat is\b/g,"that's"],[/\bdo not\b/g,"don't"],[/\bdoes not\b/g,"doesn't"],
+  [/\bdid not\b/g,"didn't"],[/\bcannot\b/g,"can't"],[/\bwill not\b/g,"won't"],[/\bwould not\b/g,"wouldn't"],
+  [/\bshould not\b/g,"shouldn't"],[/\bis not\b/g,"isn't"],[/\bare not\b/g,"aren't"],[/\bwe are\b/g,"we're"],
+  [/\bthey are\b/g,"they're"],[/\byou are\b/g,"you're"],[/\bI am\b/g,"I'm"],[/\bwe will\b/g,"we'll"],
+  [/\byou will\b/g,"you'll"],[/\bI will\b/g,"I'll"],[/\bhave not\b/g,"haven't"],[/\bhas not\b/g,"hasn't"],
+  [/\bIt is\b/g,"It's"],[/\bThat is\b/g,"That's"],[/\bDo not\b/g,"Don't"],[/\bWe are\b/g,"We're"],[/\bYou are\b/g,"You're"],
+];
+const STARTERS_AR = ['و','كمان،','وبعدين','طبعًا','بصراحة،'];
+const STARTERS_EN = ['Also,','Plus,','And','Honestly,','Then'];
+
+function isArabic(t){ const ar=(t.match(/[\u0600-\u06FF]/g)||[]).length; const lat=(t.match(/[A-Za-z]/g)||[]).length; return ar>lat; }
+function words(t){ return (t.trim().match(/\S+/g)||[]).length; }
+function esc(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function humanize(text, o){
+  const log=[]; let t=text; const ar=isArabic(t);
+  const count=(before,after,label)=>{ if(before!==after) log.push(label); };
+
+  if(o.md){ const b=t;
+    t=t.replace(/^#{1,6}\s+/gm,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1')
+       .replace(/(^|\s)\*(\S.*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1')
+       .replace(/^\s*[-*•]\s+/gm,'').replace(/^\s*\d+\.\s+/gm,'')
+       .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2705}\u{274C}\u{FE0F}]/gu,'');
+    count(b,t,ar?'أزلت تنسيق Markdown والإيموجي':'Removed Markdown and emoji'); }
+
+  if(o.dash){ const b=t;
+    t=t.replace(/\s*[—–]\s*/g, ar?'، ':', ').replace(/\s*::?\s*(?=[A-Za-z\u0600-\u06FF])/g, m=>m);
+    count(b,t,ar?'استبدلت الشرطات الطويلة':'Replaced em-dashes'); }
+
+  if(o.phrases){ const b=t; let n=0;
+    (ar?AI_PHRASES_AR:AI_PHRASES_EN).concat(ar?AI_PHRASES_EN:AI_PHRASES_AR).forEach(rx=>{ t=t.replace(rx,(m,g1)=>{n++;return (rx.source.startsWith('(^|')?g1:'');}); });
+    t=t.replace(/(^|[.!?؟]\s+)([a-z\u0600-\u06FF])/g,(m,p,c)=>p+c.toUpperCase());
+    if(n) log.push(ar?`حذفت ${n} عبارة آلية`:`Removed ${n} AI-sounding phrase(s)`); }
+
+  if(o.simple){ const b=t;
+    (ar?SIMPLE_AR:SIMPLE_EN).forEach(([rx,rep])=>{ t=t.replace(rx,rep); });
+    count(b,t,ar?'بسّطت كلمات منمّقة':'Simplified formal words'); }
+
+  if(o.contr && !ar){ const b=t; CONTR.forEach(([rx,rep])=>{ t=t.replace(rx,rep); }); count(b,t,'Added contractions'); }
+
+  if(o.split){ const b=t; const lim= ar?28:25;
+    t=t.split('\n').map(line=>{
+      return line.split(/(?<=[.!?؟])\s+/).map(s=>{
+        if(words(s)<=lim) return s;
+        // split at first comma/conjunction past midpoint
+        const mid=Math.floor(s.length/2);
+        const rx= ar?/[،,]\s+(?=\S)|\s+(?=(و|لكن|كما|ثم)\s)/g:/,\s+(?=(and|but|which|because|so|while)\s)/g;
+        let m,best=-1; while((m=rx.exec(s))){ if(m.index>=mid*0.6){best=m.index;break;} }
+        if(best<0) return s;
+        let head=s.slice(0,best).trim(), tail=s.slice(best).replace(/^[،,]?\s*(and|but|which|because|so|while|و|لكن|كما|ثم)?\s*/,'').trim();
+        if(!tail) return s;
+        if(!/[.!?؟]$/.test(head)) head+='.';
+        tail=tail.charAt(0).toUpperCase()+tail.slice(1);
+        return head+' '+tail;
+      }).join(' ');
+    }).join('\n');
+    count(b,t,ar?'قسّمت الجمل الطويلة':'Split long sentences'); }
+
+  if(o.vary){ const b=t; let i=0; const st= ar?STARTERS_AR:STARTERS_EN;
+    t=t.replace(/(^|\n)([^\n]+)/g,(m,p,para)=>{
+      const sents=para.split(/(?<=[.!?؟])\s+/); if(sents.length<3) return m;
+      const first=w=>w.trim().split(/\s+/)[0].toLowerCase();
+      for(let k=1;k<sents.length;k++){
+        if(first(sents[k])===first(sents[k-1]) && sents[k].trim().length>0){
+          sents[k]=st[i++%st.length]+' '+sents[k].charAt(0).toLowerCase()+sents[k].slice(1);
+        }
+      }
+      return p+sents.join(' ');
+    });
+    count(b,t,ar?'نوّعت بدايات الجمل المتكررة':'Varied repeated sentence openers'); }
+
+  // cleanup
+  t=t.replace(/[ \t]{2,}/g,' ').replace(/\s+([،,.!?؟])/g,'$1').replace(/([،,])\1+/g,'$1')
+     .replace(/^[ \t]+/gm,'').replace(/\n{3,}/g,'\n\n').replace(/(^|\n)[،,.]\s*/g,'$1').trim();
+  return {text:t,log,ar};
+}
+
+// simple "AI-ness" score: share of flagged patterns + sentence-length uniformity
+function score(text){
+  const ar=isArabic(text); let hits=0;
+  (ar?AI_PHRASES_AR:AI_PHRASES_EN).forEach(rx=>{ hits+=(text.match(rx)||[]).length; });
+  (ar?SIMPLE_AR:SIMPLE_EN).forEach(([rx])=>{ hits+=(text.match(rx)||[]).length; });
+  hits+=(text.match(/[—–]/g)||[]).length;
+  const sents=text.split(/(?<=[.!?؟])\s+/).map(words).filter(n=>n>0);
+  const avg=sents.reduce((a,b)=>a+b,0)/(sents.length||1);
+  const sd=Math.sqrt(sents.reduce((a,b)=>a+(b-avg)**2,0)/(sents.length||1));
+  const burst=avg?sd/avg:0; // higher = more human
+  const w=words(text)||1;
+  let s=Math.min(100, Math.round(hits/w*600 + Math.max(0,(0.45-burst))*120));
+  return {ai:s, burst:burst.toFixed(2), avg:avg.toFixed(1)};
+}
+
+function diffHtml(a,b){
+  const A=a.split(/(\s+)/), B=b.split(/(\s+)/); const setA=new Set(A.filter(x=>x.trim()));
+  return B.map(w=>w.trim()&&!setA.has(w)?'<mark>'+esc(w)+'</mark>':esc(w)).join('');
+}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+const opts=()=>({phrases:$('oPhrases').checked,dash:$('oDash').checked,md:$('oMd').checked,split:$('oSplit').checked,contr:$('oContr').checked,simple:$('oSimple').checked,vary:$('oVary').checked,hi:$('oHi').checked});
+let lastOut='';
+function render(out,log,src){
+  lastOut=out;
+  $('out').innerHTML= $('oHi').checked? diffHtml(src,out) : esc(out);
+  $('outStats').textContent=words(out)+' كلمة';
+  $('log').innerHTML=log.map(l=>'<li>• '+esc(l)+'</li>').join('')||'<li>لا توجد تغييرات</li>';
+  const s1=score(src), s2=score(out);
+  $('score').innerHTML=`<span>مؤشر "آلية" النص: <b>${s1.ai}%</b> ← <b>${s2.ai}%</b></span><span>تنوّع طول الجمل: <b>${s1.burst}</b> ← <b>${s2.burst}</b></span><span>متوسط طول الجملة: <b>${s2.avg}</b></span>`;
+}
+$('src').addEventListener('input',()=>$('inStats').textContent=words($('src').value)+' كلمة');
+$('run').onclick=()=>{ const src=$('src').value; if(!src.trim()) return; const r=humanize(src,opts()); render(r.text,r.log,src); };
+$('copy').onclick=async()=>{ if(!lastOut) return; try{ await navigator.clipboard.writeText(lastOut); $('copy').textContent='تم النسخ ✓'; setTimeout(()=>$('copy').textContent='نسخ النتيجة',1500);}catch(e){} };
+$('paste').onclick=async()=>{ try{ $('src').value=await navigator.clipboard.readText(); $('src').dispatchEvent(new Event('input')); }catch(e){ $('src').focus(); } };
+$('clear').onclick=()=>{ $('src').value=''; $('out').innerHTML=''; $('log').innerHTML=''; $('score').innerHTML=''; $('inStats').textContent='0 كلمة'; $('outStats').textContent='0 كلمة'; lastOut=''; };
+$('useAsInput').onclick=()=>{ if(lastOut){ $('src').value=lastOut; $('src').dispatchEvent(new Event('input')); } };
+$('download').onclick=()=>{ if(!lastOut) return; const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([lastOut],{type:'text/plain'})); a.download='humanized.txt'; a.click(); };
+$('sample').onclick=()=>{ $('src').value= (document.documentElement.lang==='ar') ?
+`في عالم اليوم المتسارع، من الجدير بالذكر أن التسويق الرقمي أصبح عنصرًا محوريًا — بل أساسيًا — لنجاح أي شركة. علاوة على ذلك، يتوجب علينا العمل على تحقيق الاستفادة القصوى من البيانات المتاحة من خلال أدوات التحليل الحديثة، حيث أن هذه الأدوات تتيح لنا فهم سلوك العملاء بشكل ملحوظ وتحسين الحملات الإعلانية وزيادة المبيعات وبناء علاقات طويلة الأمد. في الختام، مما لا شك فيه أن الاستثمار في هذا المجال هو قرار حكيم.` :
+`In today's fast-paced world, it's important to note that digital marketing has become a pivotal — indeed essential — element for any business. Furthermore, we must leverage the plethora of data available in order to facilitate a comprehensive understanding of customer behavior, which allows us to optimize campaigns and ultimately drive robust growth. In conclusion, undoubtedly investing in this realm is a game-changer.`;
+  $('src').dispatchEvent(new Event('input')); };
+
+// lang / theme
+$('langBtn').onclick=()=>{ const h=document.documentElement; const ar=h.lang==='ar'; h.lang=ar?'en':'ar'; h.dir=ar?'ltr':'rtl'; try{localStorage.setItem('hz-lang',h.lang);}catch(e){} };
+$('themeBtn').onclick=()=>{ const h=document.documentElement; const d=h.getAttribute('data-theme')==='dark'; h.setAttribute('data-theme',d?'light':'dark'); try{localStorage.setItem('hz-theme',d?'light':'dark');}catch(e){} };
+try{ const l=localStorage.getItem('hz-lang'); if(l){document.documentElement.lang=l;document.documentElement.dir=l==='ar'?'rtl':'ltr';} const th=localStorage.getItem('hz-theme'); if(th) document.documentElement.setAttribute('data-theme',th); const k=localStorage.getItem('hz-key'); if(k) $('apiKey').value=k; }catch(e){}
+
+// ---------- Optional AI mode ----------
+$('saveKey').onclick=()=>{ try{ localStorage.setItem('hz-key',$('apiKey').value.trim()); $('aiStatus').textContent='تم حفظ المفتاح محليًا.'; }catch(e){} };
+$('aiRun').onclick=async()=>{
+  const key=$('apiKey').value.trim(); const src=$('src').value.trim(); if(!key||!src){ $('aiStatus').textContent='أدخل المفتاح والنص أولًا.'; return; }
+  const tones={natural:'natural, everyday',business:'professional but warm, light-formal',casual:'friendly and casual',sales:'persuasive sales/pitch, confident but not hype'};
+  const ar=isArabic(src);
+  const sys=`You rewrite AI-generated text so it reads like a real person wrote it. Keep meaning, facts, names and numbers exactly. Tone: ${tones[$('tone').value]}. Vary sentence length. No em-dashes, no bullet lists, no markdown, no emojis, no generic openers or closers ("In conclusion", "في الختام", "It's important to note"). Avoid buzzwords (leverage, delve, robust, seamless, pivotal, game-changer). Use contractions in English. ${ar?'Write in natural Arabic; light Egyptian/Gulf business register is fine when the source is informal.':''} Output only the rewritten text.`;
+  $('aiStatus').textContent='جاري إعادة الصياغة...'; $('aiRun').disabled=true;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-5',max_tokens:4000,system:sys,messages:[{role:'user',content:src}]})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error?.message||r.status);
+    const out=(j.content||[]).map(c=>c.text||'').join('').trim();
+    const post=humanize(out,{...opts(),split:false,vary:false});
+    render(post.text,['أعاد الذكاء الاصطناعي الصياغة',...post.log],src); $('aiStatus').textContent='تم.';
+  }catch(e){ $('aiStatus').textContent='خطأ: '+e.message; }
+  finally{ $('aiRun').disabled=false; }
+};
+</script>
+</body>
+</html>
